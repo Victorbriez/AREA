@@ -1,0 +1,58 @@
+services:
+  server:
+    build: ./server
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    develop:
+      watch:
+        - path: ./server
+          target: /app/
+          action: rebuild
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  client_web:
+    build: ./client_web
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=8081
+    volumes:
+      - shared_data:/app/public
+    restart: unless-stopped
+
+  client_mobile:
+    build: ./client_mobile
+    volumes:
+      - shared_data:/output
+    restart: unless-stopped
+
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  db:
+    image: postgres
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -q -U $POSTGRES_USER"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  shared_data:
